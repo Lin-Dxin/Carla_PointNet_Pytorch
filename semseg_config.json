@@ -1,0 +1,13 @@
+{
+    "TRANS_LABEL": true,
+    "_carla_dir" : "data/carla_scene_02",
+    "NEED_SPEED" : true,
+    "TSB_RECORD" : true,
+    "Model" : "pointnet",
+    "epoch_num" : 25,
+    "model_path" : "./normalize_comparison.pth",
+    "K_FOLD" : false,
+    "SAVE_INIT" : false,
+    "LOAD_INIT" : true,
+    "DATA_RESAMPLE" : true
+}
