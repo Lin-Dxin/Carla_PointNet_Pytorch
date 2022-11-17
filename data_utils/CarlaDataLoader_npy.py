@@ -56,8 +56,10 @@ class CarlaDataset(Dataset):
                 path = os.path.join(self.carla_dir, file_name)
                 if path[-3:] == 'npz':
                     data = np.load(path, allow_pickle=True)['arr_0']
-                else:
+                elif path[-3:] == 'npy':
                     data = np.load(path, allow_pickle=True)
+                elif path[-3:] == 'txt':
+                    data = np.loadtxt(path)
                 # data = np.load(path, allow_pickle=True)
                 num_all_point.append(len(data))  # 记录点云数
 
@@ -77,8 +79,10 @@ class CarlaDataset(Dataset):
         roompath = os.path.join(self.carla_dir, self.file_list[room_idx])
         if roompath[-3:] == 'npz':
             raw_data = np.load(roompath)['arr_0']
-        else:
+        elif roompath[-3:] == 'npy':
             raw_data = np.load(roompath)
+        elif roompath[-3:] == 'txt':
+            raw_data = np.loadtxt(roompath)
         point = []
         label = []
         for _raw in raw_data:
