@@ -1,4 +1,4 @@
-from data_utils.CarlaDataLoader_npy import CarlaDataset
+from data_utils.CarlaDataLoader import CarlaDataset
 from torch.utils.data import DataLoader
 import numpy as np
 import time
