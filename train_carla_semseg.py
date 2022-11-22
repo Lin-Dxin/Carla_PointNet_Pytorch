@@ -16,7 +16,7 @@ import json
 with open('semseg_config.json') as f:
   json_data = json.load(f)
 
-print(json_data)
+
 
 TRANS_LABEL = json_data['TRANS_LABEL'] # 是否使用原标签
 _carla_dir = json_data['_carla_dir'] # 若不使用Kflod则该目录为主
@@ -154,11 +154,14 @@ if __name__ == '__main__':
 
         
     classifier = get_model(numclass, need_speed=NEED_SPEED).to(device)  # loading model\
-    
+    log_string(json_data)
     if LOAD_INIT:
         checkpoint = torch.load(model_path,map_location = device)
         classifier.load_state_dict(checkpoint['model_state_dict'])
-        state_epoch = checkpoint['epoch']
+        if checkpoint.__contains__('epoch'):
+            state_epoch = checkpoint['epoch']
+        else:
+            state_epoch = 0
     else:
         state_epoch = 0
         def weights_init(m):
