@@ -223,6 +223,7 @@ if __name__ == '__main__':
     validate_acc = []
     validate_loss = []
     validate_miou = []
+    class_acc = []
     for epoch in range(state_epoch, epoch_num):
         log_string('**** Epoch %d  ****' % (epoch + 1))
         start_time = time.time()
@@ -284,6 +285,7 @@ if __name__ == '__main__':
             total_seen_class = [0 for _ in range(numclass)]
             total_correct_class = [0 for _ in range(numclass)]
             total_iou_deno_class = [0 for _ in range(numclass)]
+            temp_class_acc = [0 for _ in range(numclass)]
             classifier = classifier.eval()
             print('---- EPOCH %03d EVALUATION ----' % (epoch + 1))
             for i, (points, target) in tqdm(enumerate(test_loader), total=len(test_loader), smoothing=0.9):
@@ -311,17 +313,28 @@ if __name__ == '__main__':
                     total_seen_class[l] += np.sum((batch_label == l))
                     total_correct_class[l] += np.sum((pred_val == l) & (batch_label == l))
                     total_iou_deno_class[l] += np.sum(((pred_val == l) | (batch_label == l)))
-                # break
+                    
+                    
 
+                # break
         labelweights = labelweights.astype(np.float32) / np.sum(labelweights.astype(np.float32))
         mIoU = np.mean(np.array(total_correct_class) / (np.array(total_iou_deno_class, dtype=float) + 1e-6))
+        for l in range(0,numclass):
+            if total_seen_class[l] == 0:
+                temp_class_acc[l] = 0.01
+            else:
+                temp_class_acc[l] = total_correct_class[l] / total_seen_class[l]
+        
         if TSB_RECORD:
             log_writer.add_scalar('mIoU/eval', mIoU, epoch)
             log_writer.add_scalar('loss/eval', (loss_sum / float(num_batches)), epoch)
             log_writer.add_scalar('acc/eval', (total_correct / float(total_seen)), epoch)
+        
+
         log_string('eval mean loss: %f' % (loss_sum / float(num_batches)))
         log_string('eval point avg class IoU: %f' % mIoU)
         log_string('eval point accuracy: %f' % (total_correct / float(total_seen)))
+        class_acc.append(temp_class_acc)
         validate_acc.append((total_correct / float(total_seen)))
         validate_miou.append(mIoU)
         validate_loss.append((loss_sum / float(num_batches)))
@@ -332,9 +345,10 @@ if __name__ == '__main__':
             iou_per_class_str += 'class %s weight: %.3f' % (
                 seg_label_to_cat[l] + ' ' * (numclass - len(seg_label_to_cat[l])), labelweights[l])
             if total_iou_deno_class[l] != 0:
-                iou_per_class_str += ', IoU: %.3f \n' % (total_correct_class[l] / float(total_iou_deno_class[l]))
+                iou_per_class_str += ', IoU: %.3f ' % (total_correct_class[l] / float(total_iou_deno_class[l]))
             else:
-                iou_per_class_str += ', IoU: UnValid\n'
+                iou_per_class_str += ', IoU: UnValid '
+            iou_per_class_str += ', class_acc: %.3f \n' % temp_class_acc[l]
         log_string(iou_per_class_str)
         end_time = time.time()
         spd_time = end_time - start_time
@@ -366,14 +380,15 @@ if __name__ == '__main__':
             torch.save(state, savepath)
             log_string('Saving model....')
         log_string('Best mIoU: %f' % best_iou)
-    if K_FOLD:
-        eval_save_path = str(checkpoints_dir) + '/evaluation_data%s'% partition_str + '.pth'
-        log_string('Save evaluation data at %s' %eval_save_path)
-        evaluation = {
-            'train_acc' : train_acc,
-            'train_loss' : train_loss,
-            'validate_acc' : validate_acc,
-            'validate_loss' : validate_loss,
-            'validate_miou' : validate_miou
-        }
-        torch.save(evaluation, eval_save_path)
+    # if K_FOLD:
+    eval_save_path = str(checkpoints_dir) + '/evaluation_data%s'% partition_str + '.pth'
+    log_string('Save evaluation data at %s' %eval_save_path)
+    evaluation = {
+        'train_acc' : train_acc,
+        'train_loss' : train_loss,
+        'validate_acc' : validate_acc,
+        'validate_loss' : validate_loss,
+        'validate_miou' : validate_miou,
+        'class_acc' : class_acc
+    }
+    torch.save(evaluation, eval_save_path)

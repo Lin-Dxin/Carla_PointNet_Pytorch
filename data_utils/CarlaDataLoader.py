@@ -13,7 +13,7 @@ class CarlaDataset(Dataset):
 
     def __init__(self, carla_dir, transform=None, split='train', proportion=[0.7, 0.2, 0.1],
                  num_classes=5, sample_rate=0.1, numpoints=1024 * 8, need_speed=True,
-                 block_size=1.0, resample=True,random_sample=True):
+                 block_size=1.0, resample=False,random_sample=True):
         
         self.split = split  # 区分训练集或者测试集（当数据按文件划分后，可以用whole读取所有数据
         self.proportion = proportion  # 数据划分比例
@@ -130,7 +130,7 @@ class CarlaDataset(Dataset):
 
 
 if __name__ == '__main__':
-    point_data = CarlaDataset(carla_dir='data\lidar_data_1018', split='whole', need_speed=False)
+    point_data = CarlaDataset(carla_dir='data\carla_scene_01', split='eval', need_speed=False,resample=False,random_sample=False)
     train_loader = DataLoader(point_data, batch_size=16, shuffle=True, num_workers=0,
                               pin_memory=True, drop_last=True,
                               worker_init_fn=lambda x: np.random.seed(x + int(time.time())))
@@ -138,10 +138,14 @@ if __name__ == '__main__':
     # print('point data size:', point_data.__len__())
     # print('point data 0 shape:', point_data.__getitem__(0)[0].shape)
     # print('point label 0 shape:', point_data.__getitem__(0)[1].shape)
-    classes = ['Unlabeled', 'Building', 'Fence', 'Other', 'Pedestrian', 'Pole', 'RoadLine', 'Road',
+    raw_classes = ['Unlabeled', 'Building', 'Fence', 'Other', 'Pedestrian', 'Pole', 'RoadLine', 'Road',
                'SideWalk', 'Vegetation', 'Vehicles', 'Wall', 'TrafficSign', 'Sky', 'Ground', 'Bridge'
         , 'RailTrack', 'GuardRail', 'TrafficLight', 'Static', 'Dynamic', 'Water', 'Terrain']
-    numclass = 23
+    
+    valid_label = [1, 4, 5, 7, 8, 9, 10, 11]
+    trans_label = [0, 1, 2, 3, 4, 5, 6, 7]
+    classes = [raw_classes[i] for i in valid_label]
+    numclass = point_data.num_classes
     labelweights = np.zeros(numclass)
     class2label = {cls: i for i, cls in enumerate(classes)}
     seg_classes = class2label
