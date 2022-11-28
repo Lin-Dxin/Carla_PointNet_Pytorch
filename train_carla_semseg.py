@@ -16,7 +16,7 @@ import json
 with open('semseg_config.json') as f:
   json_data = json.load(f)
 
-
+# 读取semseg.json的配置文件
 
 TRANS_LABEL = json_data['TRANS_LABEL'] # 是否使用原标签
 _carla_dir = json_data['_carla_dir'] # 若不使用Kflod则该目录为主
@@ -30,7 +30,8 @@ model_path = json_data['model_path']  # 需要一个初始化模型
 K_FOLD = json_data['K_FOLD'] # 是否使用KFLOD训练
 SAVE_INIT = json_data['SAVE_INIT'] # 将这个选项设为True、Load_Init设为False 可以在log/checkpoint/初始化生成一个initial_state.pth的初始化模型
 LOAD_INIT = json_data['LOAD_INIT']  # 不能与Save_Init相同
-DATA_RESAMPLE = json_data['DATA_RESAMPLE']
+DATA_RESAMPLE = json_data['DATA_RESAMPLE'] # 是否重采样数据
+RANDOM_RESAMPLE = json_data['RANDOM_RESAMPLE'] # 是否随机采样
 if K_FOLD:
     
     partition = json_data['partition'] # 0 - 9
