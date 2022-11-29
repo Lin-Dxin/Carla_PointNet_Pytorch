@@ -381,8 +381,10 @@ if __name__ == '__main__':
             torch.save(state, savepath)
             log_string('Saving model....')
         log_string('Best mIoU: %f' % best_iou)
-    # if K_FOLD:
-    eval_save_path = str(checkpoints_dir) + '/evaluation_data%s'% partition_str + '.pth'
+    if K_FOLD:
+        eval_save_path = str(checkpoints_dir) + '/evaluation_data%s'% partition_str + '.pth'
+    else:
+        eval_save_path = str(checkpoints_dir) + '/evaluation_data.pth'
     log_string('Save evaluation data at %s' %eval_save_path)
     evaluation = {
         'train_acc' : train_acc,
