@@ -60,9 +60,13 @@ if TRANS_LABEL:
     valid_label = [1, 4, 5, 7, 8, 9, 10, 11]
     trans_label = [0, 1, 2, 3, 4, 5, 6, 7]
     classes = [raw_classes[i] for i in valid_label]
-    # classes = ['Building', 'Road', 'Sidewalk', 'Vehicles', 'Wall']  # 最终标签列表
+    print(classes)
+    # classes = ['Building', 'Pedestrian', 'Pole', 'Road', 'SideWalk', 'Vegetation', 'Vehicles', 'Wall']  # 最终标签列表
     # print(classes)
-    numclass = len(valid_label)
+    # numclass = len(valid_label)
+    moving_tag = [1, 6, 7]
+    classes = ['moving_obj', 'static_obj']
+    numclass = 2
 else:
     classes = ['Unlabeled', 'Building', 'Fence', 'Other', 'Pedestrian', 'Pole', 'RoadLine', 'Road',
                'SideWalk', 'Vegetation', 'Vehicles', 'Wall', 'TrafficSign', 'Sky', 'Ground', 'Bridge'
@@ -251,7 +255,8 @@ if __name__ == '__main__':
             points = torch.Tensor(points)
             points, target = points.float().to(device), target.long().to(device)
             points = points.transpose(2, 1)
-
+            
+           
             seg_pred, trans_feat = classifier(points)
             seg_pred = seg_pred.to(device)
             trans_feat = trans_feat.to(device)
@@ -259,6 +264,8 @@ if __name__ == '__main__':
 
             batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
             target = target.view(-1, 1)[:, 0]
+            batch_label = torch.tensor([0 if T in moving_tag else 1 for T in batch_label]).cpu().data.numpy()
+            target = torch.tensor([0 if T in moving_tag else 1 for T in target]).to(device)
             loss = criterion(seg_pred, target, trans_feat, weights)
             loss.backward()
             optimizer.step()
@@ -298,8 +305,10 @@ if __name__ == '__main__':
                 seg_pred, trans_feat = classifier(points)
                 pred_val = seg_pred.contiguous().cpu().data.numpy()
                 seg_pred = seg_pred.contiguous().view(-1, numclass)
-                batch_label = target.cpu().data.numpy()
+                batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
                 target = target.view(-1, 1)[:, 0]
+                batch_label = torch.tensor([0 if T in moving_tag else 1 for T in batch_label]).cpu().data.numpy()
+                target = torch.tensor([0 if T in moving_tag else 1 for T in target]).to(device)
                 loss = criterion(seg_pred, target, trans_feat, weights)
                 loss_sum += loss
                 pred_val = np.argmax(pred_val, 2)
@@ -309,7 +318,7 @@ if __name__ == '__main__':
                 # print(np.histogram(batch_label, range(24)))
                 tmp, _ = np.histogram(batch_label, range(numclass + 1))
                 labelweights += tmp
-
+                batch_label = batch_label.reshape(16,-1)
                 for l in range(0, numclass):
                     total_seen_class[l] += np.sum((batch_label == l))
                     total_correct_class[l] += np.sum((pred_val == l) & (batch_label == l))
