@@ -13,7 +13,8 @@ class CarlaDataset(Dataset):
 
     def __init__(self, carla_dir, transform=None, split='train', proportion=[0.7, 0.2, 0.1],
                  num_classes=5, sample_rate=0.1, numpoints=1024 * 8, need_speed=True, chanel_num = 3,
-                 block_size=1.0, resample=False,random_sample=True):
+                 block_size=1.0, resample=False,random_sample=True, normalized=False):
+
         
         self.split = split  # 区分训练集或者测试集（当数据按文件划分后，可以用whole读取所有数据
         self.proportion = proportion  # 数据划分比例
@@ -29,6 +30,8 @@ class CarlaDataset(Dataset):
         self.need_speed = need_speed  # 用于区分是否使用速度维度
         self.chanel_num = chanel_num  # 获取通道数目
         datanum = len(all_file)
+        self.normalized = normalized
+        self.chanel_num = chanel_num
         train_offset = int(datanum * proportion[0])   # 以下三行为按照propotion划分各个部分的数据量
         test_offset = int(datanum * proportion[1]) + train_offset
         eval_offset = int(datanum * proportion[2]) + test_offset
@@ -86,15 +89,26 @@ class CarlaDataset(Dataset):
             raw_data = np.loadtxt(roompath)
         point = []
         label = []
-        for _raw in raw_data:
-            # if self.need_speed:
-            #     temp = [_raw[0], _raw[1], _raw[2], _raw[3]]
-            # else:
-            #     temp = [_raw[0], _raw[1], _raw[2]]
 
-            temp = [_raw[i] for i in range(self.chanel_num)]
-            point.append(temp)
-            label.append(_raw[-1])
+        # for _raw in raw_data:
+        #     if self.need_speed:
+        #         temp = [_raw[0], _raw[1], _raw[2], _raw[3]]
+        #     else:
+        #         temp = [_raw[0], _raw[1], _raw[2]]
+        #     point.append(temp)
+        #     label.append(_raw[5])
+        # point = np.asarray(point)
+        # label = np.asarray(label)
+        if self.normalized:
+            xyz = raw_data[:, :3]
+            xyz_max = np.max(xyz,axis=0)
+            xyz_min = np.min(xyz,axis=0)
+            normalize_xyz = (xyz[:]-xyz_min) / (xyz_max - xyz_min)
+            point = np.concatenate((xyz,normalize_xyz),axis=1)
+        else:
+            point = raw_data[:, :self.chanel_num]
+        label = raw_data[:, -1]
+
         point = np.asarray(point)
         label = np.asarray(label)
         N_points = len(label)

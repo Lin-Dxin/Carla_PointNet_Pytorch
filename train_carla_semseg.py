@@ -32,7 +32,13 @@ SAVE_INIT = json_data['SAVE_INIT'] # 将这个选项设为True、Load_Init设为
 LOAD_INIT = json_data['LOAD_INIT']  # 不能与Save_Init相同
 DATA_RESAMPLE = json_data['DATA_RESAMPLE'] # 是否重采样数据
 RANDOM_RESAMPLE = json_data['RANDOM_RESAMPLE'] # 是否随机采样
+
+NORMALIZED = json_data['NORMALIZED']
 CHANEL_NUM = json_data['CHANEL_NUM']
+if NORMALIZED is True:
+    CHANEL_NUM += 3
+
+
 if K_FOLD:
     
     partition = json_data['partition'] # 0 - 9
@@ -61,9 +67,13 @@ if TRANS_LABEL:
     valid_label = [1, 4, 5, 7, 8, 9, 10, 11]
     trans_label = [0, 1, 2, 3, 4, 5, 6, 7]
     classes = [raw_classes[i] for i in valid_label]
-    # classes = ['Building', 'Road', 'Sidewalk', 'Vehicles', 'Wall']  # 最终标签列表
+    print(classes)
+    # classes = ['Building', 'Pedestrian', 'Pole', 'Road', 'SideWalk', 'Vegetation', 'Vehicles', 'Wall']  # 最终标签列表
     # print(classes)
-    numclass = len(valid_label)
+    # numclass = len(valid_label)
+    moving_tag = [1, 6, 7]
+    classes = ['moving_obj', 'static_obj']
+    numclass = 2
 else:
     classes = ['Unlabeled', 'Building', 'Fence', 'Other', 'Pedestrian', 'Pole', 'RoadLine', 'Road',
                'SideWalk', 'Vegetation', 'Vehicles', 'Wall', 'TrafficSign', 'Sky', 'Ground', 'Bridge'
@@ -134,17 +144,19 @@ if __name__ == '__main__':
     # config dataloader
 
     if K_FOLD:
-        train_dataset = CarlaDataset(split='whole', carla_dir=train_data_dir, chanel_num=CHANEL_NUM,num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
+
+        train_dataset = CarlaDataset(split='whole', carla_dir=train_data_dir,normalized=NORMALIZED, chanel_num=CHANEL_NUM,num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
         train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0,
                                 pin_memory=True, drop_last=True, chanel_num=CHANEL_NUM)
-        test_dataset = CarlaDataset(split='whole', carla_dir=validate_data_dir, chanel_num=CHANEL_NUM, num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
+        test_dataset = CarlaDataset(split='whole', carla_dir=validate_data_dir,normalized=NORMALIZED, chanel_num=CHANEL_NUM, num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
         test_loader = DataLoader(test_dataset, batch_size=16, shuffle=True, num_workers=0,
                                 pin_memory=True, drop_last=True, chanel_num=CHANEL_NUM)
     else:
-        train_dataset = CarlaDataset(split='train', carla_dir=_carla_dir, num_classes=numclass, chanel_num=CHANEL_NUM, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
+        train_dataset = CarlaDataset(split='train', carla_dir=_carla_dir, num_classes=numclass,normalized=NORMALIZED, chanel_num=CHANEL_NUM, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
         train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0,
                                 pin_memory=True, drop_last=True)
-        test_dataset = CarlaDataset(split='test', carla_dir=_carla_dir, num_classes=numclass, chanel_num=CHANEL_NUM, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
+        test_dataset = CarlaDataset(split='test', carla_dir=_carla_dir, num_classes=numclass,normalized=NORMALIZED, chanel_num=CHANEL_NUM, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
+
         test_loader = DataLoader(test_dataset, batch_size=16, shuffle=True, num_workers=0,
                                 pin_memory=True, drop_last=True)
     # print(train_dataset.__len__())
@@ -252,7 +264,8 @@ if __name__ == '__main__':
             points = torch.Tensor(points)
             points, target = points.float().to(device), target.long().to(device)
             points = points.transpose(2, 1)
-
+            
+           
             seg_pred, trans_feat = classifier(points)
             seg_pred = seg_pred.to(device)
             trans_feat = trans_feat.to(device)
@@ -299,18 +312,19 @@ if __name__ == '__main__':
                 seg_pred, trans_feat = classifier(points)
                 pred_val = seg_pred.contiguous().cpu().data.numpy()
                 seg_pred = seg_pred.contiguous().view(-1, numclass)
-                batch_label = target.cpu().data.numpy()
+                batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
                 target = target.view(-1, 1)[:, 0]
                 loss = criterion(seg_pred, target, trans_feat, weights)
                 loss_sum += loss
                 pred_val = np.argmax(pred_val, 2)
+                
                 correct = np.sum((pred_val == batch_label))
                 total_correct += correct
                 total_seen += points.shape[0] * points.shape[2]
                 # print(np.histogram(batch_label, range(24)))
                 tmp, _ = np.histogram(batch_label, range(numclass + 1))
                 labelweights += tmp
-
+                
                 for l in range(0, numclass):
                     total_seen_class[l] += np.sum((batch_label == l))
                     total_correct_class[l] += np.sum((pred_val == l) & (batch_label == l))
