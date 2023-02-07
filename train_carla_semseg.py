@@ -32,6 +32,11 @@ SAVE_INIT = json_data['SAVE_INIT'] # 将这个选项设为True、Load_Init设为
 LOAD_INIT = json_data['LOAD_INIT']  # 不能与Save_Init相同
 DATA_RESAMPLE = json_data['DATA_RESAMPLE'] # 是否重采样数据
 RANDOM_RESAMPLE = json_data['RANDOM_RESAMPLE'] # 是否随机采样
+NORMALIZED = json_data['NORMALIZED']
+CHANEL_NUM = json_data['CHANEL_NUM']
+if NORMALIZED is True:
+    CHANEL_NUM += 3
+
 if K_FOLD:
     
     partition = json_data['partition'] # 0 - 9
@@ -137,17 +142,17 @@ if __name__ == '__main__':
     # config dataloader
 
     if K_FOLD:
-        train_dataset = CarlaDataset(split='whole', carla_dir=train_data_dir, num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
+        train_dataset = CarlaDataset(split='whole', carla_dir=train_data_dir,normalized=NORMALIZED, chanel_num=CHANEL_NUM,num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
         train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0,
-                                pin_memory=True, drop_last=True)
-        test_dataset = CarlaDataset(split='whole', carla_dir=validate_data_dir, num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
+                                pin_memory=True, drop_last=True, chanel_num=CHANEL_NUM)
+        test_dataset = CarlaDataset(split='whole', carla_dir=validate_data_dir,normalized=NORMALIZED, chanel_num=CHANEL_NUM, num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
         test_loader = DataLoader(test_dataset, batch_size=16, shuffle=True, num_workers=0,
-                                pin_memory=True, drop_last=True)
+                                pin_memory=True, drop_last=True, chanel_num=CHANEL_NUM)
     else:
-        train_dataset = CarlaDataset(split='train', carla_dir=_carla_dir, num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
+        train_dataset = CarlaDataset(split='train', carla_dir=_carla_dir, num_classes=numclass,normalized=NORMALIZED, chanel_num=CHANEL_NUM, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
         train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0,
                                 pin_memory=True, drop_last=True)
-        test_dataset = CarlaDataset(split='test', carla_dir=_carla_dir, num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
+        test_dataset = CarlaDataset(split='test', carla_dir=_carla_dir, num_classes=numclass,normalized=NORMALIZED, chanel_num=CHANEL_NUM, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
         test_loader = DataLoader(test_dataset, batch_size=16, shuffle=True, num_workers=0,
                                 pin_memory=True, drop_last=True)
     # print(train_dataset.__len__())
@@ -312,13 +317,14 @@ if __name__ == '__main__':
                 loss = criterion(seg_pred, target, trans_feat, weights)
                 loss_sum += loss
                 pred_val = np.argmax(pred_val, 2)
+                batch_label = batch_label.reshape(16,-1)
                 correct = np.sum((pred_val == batch_label))
                 total_correct += correct
                 total_seen += points.shape[0] * points.shape[2]
                 # print(np.histogram(batch_label, range(24)))
                 tmp, _ = np.histogram(batch_label, range(numclass + 1))
                 labelweights += tmp
-                batch_label = batch_label.reshape(16,-1)
+                
                 for l in range(0, numclass):
                     total_seen_class[l] += np.sum((batch_label == l))
                     total_correct_class[l] += np.sum((pred_val == l) & (batch_label == l))
