@@ -32,10 +32,12 @@ SAVE_INIT = json_data['SAVE_INIT'] # 将这个选项设为True、Load_Init设为
 LOAD_INIT = json_data['LOAD_INIT']  # 不能与Save_Init相同
 DATA_RESAMPLE = json_data['DATA_RESAMPLE'] # 是否重采样数据
 RANDOM_RESAMPLE = json_data['RANDOM_RESAMPLE'] # 是否随机采样
+
 NORMALIZED = json_data['NORMALIZED']
 CHANEL_NUM = json_data['CHANEL_NUM']
 if NORMALIZED is True:
     CHANEL_NUM += 3
+
 
 if K_FOLD:
     
@@ -142,6 +144,7 @@ if __name__ == '__main__':
     # config dataloader
 
     if K_FOLD:
+
         train_dataset = CarlaDataset(split='whole', carla_dir=train_data_dir,normalized=NORMALIZED, chanel_num=CHANEL_NUM,num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
         train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0,
                                 pin_memory=True, drop_last=True, chanel_num=CHANEL_NUM)
@@ -153,6 +156,7 @@ if __name__ == '__main__':
         train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0,
                                 pin_memory=True, drop_last=True)
         test_dataset = CarlaDataset(split='test', carla_dir=_carla_dir, num_classes=numclass,normalized=NORMALIZED, chanel_num=CHANEL_NUM, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
+
         test_loader = DataLoader(test_dataset, batch_size=16, shuffle=True, num_workers=0,
                                 pin_memory=True, drop_last=True)
     # print(train_dataset.__len__())
@@ -163,7 +167,7 @@ if __name__ == '__main__':
     log_string("The number of test data is: %d" % len(test_dataset))
 
         
-    classifier = get_model(numclass, need_speed=NEED_SPEED).to(device)  # loading model\
+    classifier = get_model(numclass, need_speed=NEED_SPEED,chanel_num=CHANEL_NUM).to(device)  # loading model\
     log_string(json_data)
     if LOAD_INIT:
         checkpoint = torch.load(model_path,map_location = device)
@@ -269,8 +273,6 @@ if __name__ == '__main__':
 
             batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
             target = target.view(-1, 1)[:, 0]
-            batch_label = torch.tensor([0 if T in moving_tag else 1 for T in batch_label]).cpu().data.numpy()
-            target = torch.tensor([0 if T in moving_tag else 1 for T in target]).to(device)
             loss = criterion(seg_pred, target, trans_feat, weights)
             loss.backward()
             optimizer.step()
@@ -312,12 +314,10 @@ if __name__ == '__main__':
                 seg_pred = seg_pred.contiguous().view(-1, numclass)
                 batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
                 target = target.view(-1, 1)[:, 0]
-                batch_label = torch.tensor([0 if T in moving_tag else 1 for T in batch_label]).cpu().data.numpy()
-                target = torch.tensor([0 if T in moving_tag else 1 for T in target]).to(device)
                 loss = criterion(seg_pred, target, trans_feat, weights)
                 loss_sum += loss
                 pred_val = np.argmax(pred_val, 2)
-                batch_label = batch_label.reshape(16,-1)
+                
                 correct = np.sum((pred_val == batch_label))
                 total_correct += correct
                 total_seen += points.shape[0] * points.shape[2]
@@ -396,8 +396,10 @@ if __name__ == '__main__':
             torch.save(state, savepath)
             log_string('Saving model....')
         log_string('Best mIoU: %f' % best_iou)
-    # if K_FOLD:
-    eval_save_path = str(checkpoints_dir) + '/evaluation_data%s'% partition_str + '.pth'
+    if K_FOLD:
+        eval_save_path = str(checkpoints_dir) + '/evaluation_data%s'% partition_str + '.pth'
+    else:
+        eval_save_path = str(checkpoints_dir) + '/evaluation_data.pth'
     log_string('Save evaluation data at %s' %eval_save_path)
     evaluation = {
         'train_acc' : train_acc,
