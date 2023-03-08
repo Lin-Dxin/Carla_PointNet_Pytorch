@@ -12,7 +12,7 @@ class CarlaDataset(Dataset):
     # label_weights = np.random.normal(size=5)
 
     def __init__(self, carla_dir, transform=None, split='train', proportion=[0.7, 0.2, 0.1],
-                 num_classes=5, sample_rate=0.1, numpoints=1024 * 8, need_speed=True,
+                 num_classes=5, sample_rate=0.1, numpoints=1024 * 8, need_speed=True, chanel_num = 3,
                  block_size=1.0, resample=False,random_sample=True):
         
         self.split = split  # 区分训练集或者测试集（当数据按文件划分后，可以用whole读取所有数据
@@ -27,6 +27,7 @@ class CarlaDataset(Dataset):
         self.numpoints = numpoints  # 单帧中采样的点数
         all_file = os.listdir(self.carla_dir)  # 用于记录数据量
         self.need_speed = need_speed  # 用于区分是否使用速度维度
+        self.chanel_num = chanel_num  # 获取通道数目
         datanum = len(all_file)
         train_offset = int(datanum * proportion[0])   # 以下三行为按照propotion划分各个部分的数据量
         test_offset = int(datanum * proportion[1]) + train_offset
@@ -86,12 +87,14 @@ class CarlaDataset(Dataset):
         point = []
         label = []
         for _raw in raw_data:
-            if self.need_speed:
-                temp = [_raw[0], _raw[1], _raw[2], _raw[3]]
-            else:
-                temp = [_raw[0], _raw[1], _raw[2]]
+            # if self.need_speed:
+            #     temp = [_raw[0], _raw[1], _raw[2], _raw[3]]
+            # else:
+            #     temp = [_raw[0], _raw[1], _raw[2]]
+
+            temp = [_raw[i] for i in range(self.chanel_num)]
             point.append(temp)
-            label.append(_raw[5])
+            label.append(_raw[-1])
         point = np.asarray(point)
         label = np.asarray(label)
         N_points = len(label)
@@ -130,7 +133,7 @@ class CarlaDataset(Dataset):
 
 
 if __name__ == '__main__':
-    point_data = CarlaDataset(carla_dir='data\carla_scene_01', split='eval', need_speed=False,resample=False,random_sample=False)
+    point_data = CarlaDataset(carla_dir='data\\town_03_velocity_vector\\', split='eval', chanel_num=6,need_speed=False,resample=False,random_sample=False)
     train_loader = DataLoader(point_data, batch_size=16, shuffle=True, num_workers=0,
                               pin_memory=True, drop_last=True,
                               worker_init_fn=lambda x: np.random.seed(x + int(time.time())))
@@ -156,9 +159,12 @@ if __name__ == '__main__':
 
 
     for i, (input, target) in enumerate(train_loader):
-        batch_label = target.cpu().data.numpy()
-        tmp, _ = np.histogram(batch_label, range(numclass + 1))
-        labelweights += tmp
+        print('calculating points distribution....', end = ' ')
+        print(target.shape)
+        print(input.shape)
+        # batch_label = target.cpu().data.numpy()
+        # tmp, _ = np.histogram(batch_label, range(numclass + 1))
+        # labelweights += tmp
 
     labelweights = labelweights.astype(np.float32) / np.sum(labelweights.astype(np.float32))
     for l in range(numclass):
