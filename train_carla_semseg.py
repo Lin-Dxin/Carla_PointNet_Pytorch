@@ -199,7 +199,7 @@ if __name__ == '__main__':
     MOMENTUM_DECCAY_STEP = step_size
     temp = np.random.normal(size=numclass)
     weights = torch.Tensor(temp).to(device)
-
+    
     optimizer = torch.optim.Adam(
         classifier.parameters(),
         lr=learning_rate,
@@ -225,6 +225,14 @@ if __name__ == '__main__':
     validate_loss = []
     validate_miou = []
     class_acc = []
+    # if TSB_RECORD:
+    #         dummy_input = torch.randn(16,3,8192)
+    #         dummy_input = dummy_input.to(device)
+    #         with SummaryWriter(comment='%s' %Model) as w:
+    #             w.add_graph(classifier, dummy_input)
+    #             w.close()
+    # #     log_string('initial learning rate: %f' % learning_rate)
+    # #     log_string('decay_rate: %f' % decay_rate)
     for epoch in range(state_epoch, epoch_num):
         log_string('**** Epoch %d  ****' % (epoch + 1))
         start_time = time.time()
@@ -241,7 +249,7 @@ if __name__ == '__main__':
         total_seen = 0
         loss_sum = 0
         classifier = classifier.train()
-
+        
         for i, (points, target) in tqdm(enumerate(train_loader), total=len(train_loader), smoothing=0.9):
             # print(points.shape)
             # print(target)
