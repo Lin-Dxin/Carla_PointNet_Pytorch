@@ -86,15 +86,17 @@ class CarlaDataset(Dataset):
             raw_data = np.loadtxt(roompath)
         point = []
         label = []
-        for _raw in raw_data:
-            # if self.need_speed:
-            #     temp = [_raw[0], _raw[1], _raw[2], _raw[3]]
-            # else:
-            #     temp = [_raw[0], _raw[1], _raw[2]]
+        # for _raw in raw_data:
+        #     # if self.need_speed:
+        #     #     temp = [_raw[0], _raw[1], _raw[2], _raw[3]]
+        #     # else:
+        #     #     temp = [_raw[0], _raw[1], _raw[2]]
 
-            temp = [_raw[i] for i in range(self.chanel_num)]
-            point.append(temp)
-            label.append(_raw[-1])
+        #     temp = [_raw[i] for i in range(self.chanel_num)]
+        #     point.append(temp)
+        #     label.append(_raw[-1])
+        point = raw_data[:, :self.chanel_num]
+        label = raw_data[:, -1]
         point = np.asarray(point)
         label = np.asarray(label)
         N_points = len(label)

@@ -15,13 +15,13 @@ import torch.nn.functional as F
 
 
 class get_model(nn.Module):
-    def __init__(self, num_class, need_speed = True):
+    def __init__(self, num_class, need_speed = True, chanel_num=3):
         super(get_model, self).__init__()
         self.k = num_class
-        channel = 3
+        channel = chanel_num
         if need_speed:
             channel = 4
-        self.feat = PointNetEncoder(global_feat=False, feature_transform=True, channel=channel)
+        self.feat = PointNetEncoder(global_feat=False, feature_transform=False, channel=channel)
         self.conv1 = torch.nn.Conv1d(1088, 512, 1)
         self.conv2 = torch.nn.Conv1d(512, 256, 1)
         self.conv3 = torch.nn.Conv1d(256, 128, 1)
