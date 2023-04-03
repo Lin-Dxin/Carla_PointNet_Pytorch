@@ -15,13 +15,21 @@ import torch.nn.functional as F
 
 
 class get_model(nn.Module):
-    def __init__(self, num_class, need_speed = True):
+    def __init__(self, num_class, need_speed = True, chanel_num = 3):
         super(get_model, self).__init__()
         self.k = num_class
-        channel = 3
+        channel = chanel_num
+        self.need_speed = need_speed
         if need_speed:
-            channel = 4
-        self.feat = PointNetEncoder(global_feat=False, feature_transform=False, channel=channel)
+            self.feat_speed = PointNetEncoder(global_feat=False, feature_transform=True, channel=1)
+            self.conv1_speed = torch.nn.Conv1d(1088, 512, 1)
+            self.conv2_speed = torch.nn.Conv1d(512, 256, 1)
+            self.conv3_speed = torch.nn.Conv1d(256, 128, 1)
+            self.conv4_speed = torch.nn.Conv1d(128, self.k, 1)
+            self.bn1_speed = nn.BatchNorm1d(512)
+            self.bn2_speed = nn.BatchNorm1d(256)
+            self.bn3_speed = nn.BatchNorm1d(128)
+        self.feat = PointNetEncoder(global_feat=False, feature_transform=True, channel=channel)
         self.conv1 = torch.nn.Conv1d(1088, 512, 1)
         self.conv2 = torch.nn.Conv1d(512, 256, 1)
         self.conv3 = torch.nn.Conv1d(256, 128, 1)
@@ -31,6 +39,8 @@ class get_model(nn.Module):
         self.bn3 = nn.BatchNorm1d(128)
 
     def forward(self, x):
+        x_speed = x[:,-1,:]
+        x_speed = x_speed[:, np.newaxis, :]
         batchsize = x.size()[0]
         n_pts = x.size()[2]
         x, trans, trans_feat = self.feat(x)
@@ -41,6 +51,20 @@ class get_model(nn.Module):
         x = x.transpose(2, 1).contiguous()
         x = F.log_softmax(x.view(-1, self.k), dim=-1)
         x = x.view(batchsize, n_pts, self.k)
+        
+        if self.need_speed:
+            x_speed, trans_speed, trans_feat_speed = self.feat_speed(x_speed)
+            x_speed = F.relu(self.bn1_speed(self.conv1_speed(x_speed)))
+            x_speed = F.relu(self.bn2_speed(self.conv2_speed(x_speed)))
+            x_speed = F.relu(self.bn3_speed(self.conv3_speed(x_speed)))
+            x_speed = self.conv4_speed(x_speed)
+            x_speed = x_speed.transpose(2, 1).contiguous()
+            x_speed = F.log_softmax(x_speed.view(-1, self.k), dim=-1)
+            x_speed = x_speed.view(batchsize, n_pts, self.k)
+            # seg_pred = seg_pred.contiguous().view(-1, numclass)
+            # pred_choice = seg_pred.cpu().data.max(1)[1].numpy()
+            x = x + x_speed * 0.3
+            trans_feat = trans_feat + trans_feat_speed
         return x, trans_feat
 
 
@@ -155,7 +179,9 @@ class PointNetEncoder(nn.Module):
         if D > 3:
             feature = x[:, :, 3:]
             x = x[:, :, :3]
-        x = torch.bmm(x, trans)
+        # if D == 1:
+
+        # x = torch.bmm(x, trans)
         if D > 3:
             x = torch.cat([x, feature], dim=2)
         x = x.transpose(2, 1)

@@ -21,7 +21,7 @@ class get_model(nn.Module):
         channel = chanel_num
         if need_speed:
             channel = 4
-        self.feat = PointNetEncoder(global_feat=False, feature_transform=False, channel=channel)
+        self.feat = PointNetEncoder(global_feat=False, feature_transform=True, channel=channel)
         self.conv1 = torch.nn.Conv1d(1088, 512, 1)
         self.conv2 = torch.nn.Conv1d(512, 256, 1)
         self.conv3 = torch.nn.Conv1d(256, 128, 1)

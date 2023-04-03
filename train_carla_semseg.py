@@ -50,8 +50,10 @@ if K_FOLD:
 
 if Model == "pointnet2":
     from models.pointnet2_semseg_carla import get_model, get_loss
-else:
+elif Model == "pointnet":
     from models.pointnet_semseg_carla import get_model, get_loss
+elif Model == "pointnet3":
+    from models.point4dnet import get_model, get_loss
 
 if TRANS_LABEL:
     raw_classes = ['Unlabeled', 'Building', 'Fence', 'Other', 'Pedestrian', 'Pole', 'RoadLine', 'Road',
@@ -227,9 +229,9 @@ if __name__ == '__main__':
     validate_miou = []
     class_acc = []
     if TSB_RECORD:
-        dummy_input = torch.randn(16,3,8192)
-        dummy_input = dummy_input.to(device)
-        log_writer.add_graph(classifier, dummy_input)
+        # dummy_input = torch.randn(16,3,8192)
+        # dummy_input = dummy_input.to(device)
+        # log_writer.add_graph(classifier, dummy_input)
         log_string('initial learning rate: %f' % learning_rate)
         log_string('decay_rate: %f' % decay_rate)
     for epoch in range(state_epoch, epoch_num):
