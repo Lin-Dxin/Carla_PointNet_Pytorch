@@ -11,7 +11,7 @@ import torch.utils.data
 from torch.autograd import Variable
 import numpy as np
 import torch.nn.functional as F
-
+import pandas as pd
 
 
 class get_model(nn.Module):
@@ -40,6 +40,12 @@ class get_model(nn.Module):
 
     def forward(self, x):
         x_speed = x[:,-1,:]
+        # 16 1 8192
+        s = pd.Series(x_speed.reshape(-1).cpu())
+        s = s.kurt()
+        ratio = np.exp(-1 * s / 3)
+        # 4 2 1
+        # print("ratio :%f" %ratio)
         x_speed = x_speed[:, np.newaxis, :]
         batchsize = x.size()[0]
         n_pts = x.size()[2]
@@ -63,7 +69,8 @@ class get_model(nn.Module):
             x_speed = x_speed.view(batchsize, n_pts, self.k)
             # seg_pred = seg_pred.contiguous().view(-1, numclass)
             # pred_choice = seg_pred.cpu().data.max(1)[1].numpy()
-            x = x + x_speed * 0.3
+            # x = x + 0.3 * x_speed
+            x = x + x_speed * ratio
             trans_feat = trans_feat + trans_feat_speed
         return x, trans_feat
 
