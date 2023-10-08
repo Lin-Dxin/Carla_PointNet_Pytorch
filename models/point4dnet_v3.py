@@ -65,7 +65,7 @@ class get_model(nn.Module):
         x = x.transpose(2, 1).contiguous() # B * N * C
         x = F.log_softmax(x.view(-1, self.k), dim=-1)
         x = x.view(batchsize, n_pts, self.k)
-        
+        x_cord = x
         if self.need_speed:
             # B * 1 * N
             # x_speed, trans_speed, trans_feat_speed = self.feat_speed(x_speed) 
@@ -78,7 +78,7 @@ class get_model(nn.Module):
             # x = x + 0.3 * x_speed
             x = x + x_speed * ratio
             trans_feat = trans_feat
-        return x, trans_feat
+        return x, trans_feat, x_cord, x_speed
 
 
 class get_loss(torch.nn.Module):
@@ -86,10 +86,12 @@ class get_loss(torch.nn.Module):
         super(get_loss, self).__init__()
         self.mat_diff_loss_scale = mat_diff_loss_scale
 
-    def forward(self, pred, target, trans_feat, weight):
+    def forward(self, pred, x_cord, x_speed, target ,trans_feat, weights):
         loss = F.nll_loss(pred, target, weight=None)
+        loss_cord = F.nll_loss(x_cord, target, weight=None)
+        loss_speed = F.nll_loss(x_speed, target, weight=None)
         mat_diff_loss = feature_transform_reguliarzer(trans_feat)
-        total_loss = loss + mat_diff_loss * self.mat_diff_loss_scale
+        total_loss = loss + loss_cord + loss_speed
         return total_loss
 
 class STN3d(nn.Module):
