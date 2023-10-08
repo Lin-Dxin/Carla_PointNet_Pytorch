@@ -1,4 +1,5 @@
 import os
+import random
 import numpy as np
 import torch
 # from plyfile import PlyData
@@ -34,12 +35,18 @@ class CarlaDataset(Dataset):
         eval_offset = int(datanum * proportion[2]) + test_offset
         if split == 'train':
             print('Train Scene Data Loading..')
+            # all_file = random.sample(range(len(all_file)),int(datanum * proportion[0]))
+            # 随机采样
             all_file = all_file[:train_offset]
         if split == 'test':
             print('Test Scene Data Loading..')
+            # 随机采样
+            # all_file = random.sample(range(len(all_file)),int(datanum * proportion[1]))
             all_file = all_file[train_offset:test_offset]
         if split == 'eval':
             print('Eval Scene Data Loading..')
+            # 随机采样
+            # all_file = random.sample(range(len(all_file)),int(datanum * proportion[2]))
             all_file = all_file[test_offset:eval_offset]
         if split == 'whole':  # 使用当前目录下的全部数据
             print('Whole Scene Data Loading..')
@@ -50,6 +57,8 @@ class CarlaDataset(Dataset):
         room_idxs = []
         if resample == False:
             room_idxs = [i for i in range(len(all_file))]
+            # 是否打乱room idx
+            # room_idxs = random.sample(range(len(all_file)),len(all_file))
         else:
             # resample 重采样操作
             num_all_point = []

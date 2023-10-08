@@ -12,7 +12,7 @@ from torch.autograd import Variable
 import numpy as np
 import torch.nn.functional as F
 import pandas as pd
-
+# Point4D with smaller MLP(speed chanel)
 
 class get_model(nn.Module):
     def __init__(self, num_class, need_speed = True, chanel_num = 3):
@@ -33,13 +33,7 @@ class get_model(nn.Module):
 
 
             
-            self.conv1_speed = torch.nn.Conv1d(1, 32, 1)
-            self.conv2_speed = torch.nn.Conv1d(32, 64, 1)
-            self.conv3_speed = torch.nn.Conv1d(64, 128, 1)
-            self.conv4_speed = torch.nn.Conv1d(128, self.k, 1)
-            self.bn1_speed = nn.BatchNorm1d(32)
-            self.bn2_speed = nn.BatchNorm1d(64)
-            self.bn3_speed = nn.BatchNorm1d(128)
+            self.conv_speed = torch.nn.Conv1d(1, self.k, 1)
         self.feat = PointNetEncoder(global_feat=False, feature_transform=True, channel=channel)
         self.conv1 = torch.nn.Conv1d(1088, 512, 1)
         self.conv2 = torch.nn.Conv1d(512, 256, 1)
@@ -76,10 +70,7 @@ class get_model(nn.Module):
             # B * 1 * N
             # x_speed, trans_speed, trans_feat_speed = self.feat_speed(x_speed) 
 
-            x_speed = F.relu(self.bn1_speed(self.conv1_speed(x_speed)))
-            x_speed = F.relu(self.bn2_speed(self.conv2_speed(x_speed)))
-            x_speed = F.relu(self.bn3_speed(self.conv3_speed(x_speed)))
-            x_speed = self.conv4_speed(x_speed)
+            x_speed = F.relu(self.conv_speed(x_speed))
             x_speed = x_speed.transpose(2, 1).contiguous()
             x_speed = F.log_softmax(x_speed.view(-1, self.k), dim=-1)
             x_speed = x_speed.view(batchsize, n_pts, self.k)
