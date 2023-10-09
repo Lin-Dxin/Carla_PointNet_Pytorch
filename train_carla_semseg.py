@@ -319,6 +319,7 @@ if __name__ == '__main__':
 
                 seg_pred, trans_feat, kurt = classifier(points)
                 pred_val = seg_pred.contiguous().cpu().data.numpy()
+                # pred_val [16,8192,8]
                 seg_pred = seg_pred.contiguous().view(-1, numclass)
                 batch_label = target.cpu().data.numpy()
                 target = target.view(-1, 1)[:, 0]

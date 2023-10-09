@@ -91,7 +91,7 @@ class get_loss(torch.nn.Module):
         loss_cord = F.nll_loss(x_cord, target, weight=None)
         loss_speed = F.nll_loss(x_speed, target, weight=None)
         mat_diff_loss = feature_transform_reguliarzer(trans_feat)
-        total_loss = loss + loss_cord + loss_speed
+        total_loss = loss_cord + loss_speed
         return total_loss
 
 class STN3d(nn.Module):

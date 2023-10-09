@@ -57,6 +57,8 @@ elif Model == "pointnet3":
     from models.point4dnet import get_model, get_loss
 elif Model == "pointnet3.1":
     from models.point4dnet_v2 import get_model, get_loss
+elif Model == "pointnet3.3":
+    from models.point4dnet_v3 import get_model, get_loss
 elif Model == "pointnet4":
     from models.point4d_multi_scale import get_model, get_loss
 elif Model == "pointnet4.3":
@@ -256,7 +258,7 @@ if __name__ == '__main__':
         num_batches = len(train_loader)
         total_correct = 0
         total_seen = 0
-        kurt_sum = 0
+        # kurt_sum = 0
         loss_sum = 0
         classifier = classifier.train()
         
@@ -274,7 +276,8 @@ if __name__ == '__main__':
             seg_pred = seg_pred.to(device)
             # trans_feat = trans_feat.to(device)
             seg_pred = seg_pred.contiguous().view(-1, numclass)
-
+            x_cord = x_cord.contiguous().view(-1, numclass)
+            x_speed = x_speed.contiguous().view(-1, numclass)
             batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
             target = target.view(-1, 1)[:, 0]
             loss = criterion(seg_pred, x_cord, x_speed, target ,trans_feat, weights)
@@ -287,15 +290,15 @@ if __name__ == '__main__':
             # total_seen += (16 * 4096)
             total_seen += points.shape[0] * points.shape[2]
             loss_sum += loss
-            kurt_sum += kurt
+            # kurt_sum += kurt
             # break
         if TSB_RECORD:
             log_writer.add_scalar('Loss/train', float(loss_sum / num_batches), epoch)
             log_writer.add_scalar('ACC/train', total_correct / float(total_seen), epoch)
-            log_writer.add_scalar('Kurt/train', float(kurt_sum / num_batches), epoch)
+            # log_writer.add_scalar('Kurt/train', float(kurt_sum / num_batches), epoch)
         log_string('Training mean loss: %f' % (loss_sum / num_batches))
         log_string('Training accuracy: %f' % (total_correct / float(total_seen)))
-        log_string('Training mean kurt: %f' % (kurt_sum / num_batches))
+        # log_string('Training mean kurt: %f' % (kurt_sum / num_batches))
         train_acc.append((total_correct / float(total_seen)))
         train_loss.append((loss_sum / num_batches))
         with torch.no_grad():
@@ -303,7 +306,7 @@ if __name__ == '__main__':
             total_correct = 0
             total_seen = 0
             loss_sum = 0
-            kurt_sum = 0
+            # kurt_sum = 0
             labelweights = np.zeros(numclass)
             total_seen_class = [0 for _ in range(numclass)]
             total_correct_class = [0 for _ in range(numclass)]
@@ -317,13 +320,20 @@ if __name__ == '__main__':
                 points, target = points.float().to(device), target.long().to(device)
                 points = points.transpose(2, 1)
 
-                seg_pred, trans_feat, kurt = classifier(points)
+                seg_pred, trans_feat, x_cord, x_speed = classifier(points)
+                # seg_pred = seg_pred.to(device)
+                # trans_feat = trans_feat.to(device)
+                # seg_pred [16,8192,8]
                 pred_val = seg_pred.contiguous().cpu().data.numpy()
                 seg_pred = seg_pred.contiguous().view(-1, numclass)
+                x_cord = x_cord.contiguous().view(-1, numclass)
+                x_speed = x_speed.contiguous().view(-1, numclass)
+                
+                # seg_pred = seg_pred.contiguous().view(-1, numclass)
                 batch_label = target.cpu().data.numpy()
                 target = target.view(-1, 1)[:, 0]
-                loss = criterion(seg_pred, target, trans_feat, weights)
-                kurt_sum += kurt
+                loss = criterion(seg_pred, x_cord, x_speed, target ,trans_feat, weights)
+                # kurt_sum += kurt
                 loss_sum += loss
                 pred_val = np.argmax(pred_val, 2)
                 correct = np.sum((pred_val == batch_label))
@@ -352,14 +362,14 @@ if __name__ == '__main__':
         if TSB_RECORD:
             log_writer.add_scalar('mIoU/eval', mIoU, epoch)
             log_writer.add_scalar('loss/eval', (loss_sum / float(num_batches)), epoch)
-            log_writer.add_scalar('Kurt/eval', float(kurt_sum / num_batches), epoch)
+            # log_writer.add_scalar('Kurt/eval', float(kurt_sum / num_batches), epoch)
             log_writer.add_scalar('acc/eval', (total_correct / float(total_seen)), epoch)
         
 
         log_string('eval mean loss: %f' % (loss_sum / float(num_batches)))
         log_string('eval point avg class IoU: %f' % mIoU)
         log_string('eval point accuracy: %f' % (total_correct / float(total_seen)))
-        log_string('eval mean kurt: %f' % (kurt_sum / num_batches))
+        # log_string('eval mean kurt: %f' % (kurt_sum / num_batches))
         class_acc.append(temp_class_acc)
         validate_acc.append((total_correct / float(total_seen)))
         validate_miou.append(mIoU)

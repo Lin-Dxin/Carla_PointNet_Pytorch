@@ -47,8 +47,8 @@ class get_model(nn.Module):
         x_speed = x[:,-1,:]
         x = x[:, :3, :]
         # 16 1 8192
-        # s = pd.Series(x_speed.reshape(-1).cpu())
-        # s = s.kurt()
+        s = pd.Series(x_speed.reshape(-1).cpu())
+        s = s.kurt()
         # ratio = np.exp(-1 * s / 3)
         ratio = 0.3
         # 4 2 1
@@ -78,7 +78,7 @@ class get_model(nn.Module):
             # x = x + 0.3 * x_speed
             x = x + x_speed * ratio
             trans_feat = trans_feat
-        return x, trans_feat
+        return x, trans_feat, s
 
 
 class get_loss(torch.nn.Module):
