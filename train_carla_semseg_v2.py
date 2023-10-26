@@ -59,11 +59,14 @@ elif Model == "pointnet3.1":
     from models.point4dnet_v2 import get_model, get_loss
 elif Model == "pointnet3.3":
     from models.point4dnet_v3 import get_model, get_loss
+elif Model == "pointnet3.4":
+    from models.point4dnet_v4 import get_model, get_loss
 elif Model == "pointnet4":
     from models.point4d_multi_scale import get_model, get_loss
 elif Model == "pointnet4.3":
     from models.point4d_multi_scale_3 import get_model, get_loss
-
+elif Model == "pointnet2for4d":
+    from models.point4d2net import get_model, get_loss
 
 if TRANS_LABEL:
     raw_classes = ['Unlabeled', 'Building', 'Fence', 'Other', 'Pedestrian', 'Pole', 'RoadLine', 'Road',
@@ -271,16 +274,22 @@ if __name__ == '__main__':
             points = torch.Tensor(points)
             points, target = points.float().to(device), target.long().to(device)
             points = points.transpose(2, 1)
-
-            seg_pred, trans_feat, x_cord, x_speed = classifier(points)
+            if Model == "pointnet2for4d":
+                seg_pred, trans_feat = classifier(points)
+            else:
+                seg_pred, trans_feat, x_cord, x_speed = classifier(points)
             seg_pred = seg_pred.to(device)
             # trans_feat = trans_feat.to(device)
             seg_pred = seg_pred.contiguous().view(-1, numclass)
-            x_cord = x_cord.contiguous().view(-1, numclass)
-            x_speed = x_speed.contiguous().view(-1, numclass)
             batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
             target = target.view(-1, 1)[:, 0]
-            loss = criterion(seg_pred, x_cord, x_speed, target ,trans_feat, weights)
+            if Model != "pointnet2for4d":
+                x_cord = x_cord.contiguous().view(-1, numclass)
+                x_speed = x_speed.contiguous().view(-1, numclass)
+            if Model == "pointnet2for4d":
+                loss = criterion(seg_pred, target)
+            else:
+                loss = criterion(seg_pred, x_cord, x_speed, target ,trans_feat, weights)
             loss.backward()
             optimizer.step()
 
@@ -319,20 +328,29 @@ if __name__ == '__main__':
                 points = torch.Tensor(points)
                 points, target = points.float().to(device), target.long().to(device)
                 points = points.transpose(2, 1)
+                if Model == "pointnet2for4d":
+                    seg_pred, trans_feat = classifier(points)
+                else:
+                    seg_pred, trans_feat, x_cord, x_speed = classifier(points)
+                pred_val = seg_pred.contiguous().cpu().data.numpy()
+                seg_pred = seg_pred.contiguous().view(-1, numclass)
 
-                seg_pred, trans_feat, x_cord, x_speed = classifier(points)
                 # seg_pred = seg_pred.to(device)
                 # trans_feat = trans_feat.to(device)
                 # seg_pred [16,8192,8]
-                pred_val = seg_pred.contiguous().cpu().data.numpy()
-                seg_pred = seg_pred.contiguous().view(-1, numclass)
-                x_cord = x_cord.contiguous().view(-1, numclass)
-                x_speed = x_speed.contiguous().view(-1, numclass)
+                
+                if Model != "pointnet2for4d":
+                    x_cord = x_cord.contiguous().view(-1, numclass)
+                    x_speed = x_speed.contiguous().view(-1, numclass)
                 
                 # seg_pred = seg_pred.contiguous().view(-1, numclass)
                 batch_label = target.cpu().data.numpy()
                 target = target.view(-1, 1)[:, 0]
-                loss = criterion(seg_pred, x_cord, x_speed, target ,trans_feat, weights)
+                if Model == "pointnet2for4d":
+                    loss = criterion(seg_pred, target,trans_feat, weights)
+                else:
+                    loss = criterion(seg_pred, x_cord, x_speed, target ,trans_feat, weights)
+                
                 # kurt_sum += kurt
                 loss_sum += loss
                 pred_val = np.argmax(pred_val, 2)
