@@ -67,6 +67,9 @@ elif Model == "pointnet4.3":
     from models.point4d_multi_scale_3 import get_model, get_loss
 elif Model == "pointnet2for4d":
     from models.point4d2net import get_model, get_loss
+elif Model == "point4d_MMI":
+    from models.point4d_MMI import get_model, get_loss
+
 
 if TRANS_LABEL:
     raw_classes = ['Unlabeled', 'Building', 'Fence', 'Other', 'Pedestrian', 'Pole', 'RoadLine', 'Road',
@@ -148,20 +151,24 @@ if __name__ == '__main__':
     # train
     # config dataloader
 
-    if K_FOLD:
-        train_dataset = CarlaDataset(split='whole', carla_dir=train_data_dir, chanel_num=CHANEL_NUM,num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
-        train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0,
-                                pin_memory=True, drop_last=True, chanel_num=CHANEL_NUM)
-        test_dataset = CarlaDataset(split='whole', carla_dir=validate_data_dir, chanel_num=CHANEL_NUM, num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
-        test_loader = DataLoader(test_dataset, batch_size=16, shuffle=True, num_workers=0,
-                                pin_memory=True, drop_last=True, chanel_num=CHANEL_NUM)
-    else:
-        train_dataset = CarlaDataset(split='train', carla_dir=_carla_dir, num_classes=numclass, chanel_num=CHANEL_NUM, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
-        train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0,
-                                pin_memory=True, drop_last=True)
-        test_dataset = CarlaDataset(split='test', carla_dir=_carla_dir, num_classes=numclass, chanel_num=CHANEL_NUM, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
-        test_loader = DataLoader(test_dataset, batch_size=16, shuffle=True, num_workers=0,
-                                pin_memory=True, drop_last=True)
+    # if K_FOLD:
+    #     train_dataset = CarlaDataset(split='whole', carla_dir=train_data_dir, chanel_num=CHANEL_NUM,num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
+    #     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0,
+    #                             pin_memory=True, drop_last=True, chanel_num=CHANEL_NUM)
+    #     test_dataset = CarlaDataset(split='whole', carla_dir=validate_data_dir, chanel_num=CHANEL_NUM, num_classes=numclass, need_speed=NEED_SPEED, proportion=PROPOTION,resample=DATA_RESAMPLE)
+    #     test_loader = DataLoader(test_dataset, batch_size=16, shuffle=True, num_workers=0,
+    #                             pin_memory=True, drop_last=True, chanel_num=CHANEL_NUM)
+    # else:
+    train_dataset = CarlaDataset(split='train', carla_dir=_carla_dir, num_classes=numclass, 
+                                 chanel_num=CHANEL_NUM, need_speed=NEED_SPEED, proportion=PROPOTION,
+                                 resample=DATA_RESAMPLE,numpoints=1024 * 4)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=0,
+                            pin_memory=True, drop_last=True)
+    test_dataset = CarlaDataset(split='test', carla_dir=_carla_dir, num_classes=numclass, 
+                                chanel_num=CHANEL_NUM, need_speed=NEED_SPEED, proportion=PROPOTION,
+                                resample=DATA_RESAMPLE,numpoints=1024 * 4)
+    test_loader = DataLoader(test_dataset, batch_size=16, shuffle=True, num_workers=0,
+                            pin_memory=True, drop_last=True)
     # print(train_dataset.__len__())
     # print(test_dataset.__len__())
     log_string("Using Model:%s" % Model)
@@ -274,20 +281,35 @@ if __name__ == '__main__':
             points = torch.Tensor(points)
             points, target = points.float().to(device), target.long().to(device)
             points = points.transpose(2, 1)
-            if Model == "pointnet2for4d":
-                seg_pred, trans_feat = classifier(points)
-            else:
-                seg_pred, trans_feat, x_cord, x_speed = classifier(points)
+            result = classifier(points)
+            seg_pred = result['x']
+            trans_feat = result['trans_feat']
+            # if Model == "pointnet2for4d":
+            #     seg_pred, trans_feat = classifier(points)
+            # else:
+            #     seg_pred, trans_feat, x_cord, x_speed = classifier(points)
             seg_pred = seg_pred.to(device)
             # trans_feat = trans_feat.to(device)
             seg_pred = seg_pred.contiguous().view(-1, numclass)
             batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
             target = target.view(-1, 1)[:, 0]
-            if Model != "pointnet2for4d":
-                x_cord = x_cord.contiguous().view(-1, numclass)
-                x_speed = x_speed.contiguous().view(-1, numclass)
+            # if Model != "pointnet2for4d":
+            #     x_cord = result['x_cord']
+            #     x_speed = result['x_speed']
+            #     x_cord = x_cord.contiguous().view(-1, numclass)
+            #     x_speed = x_speed.contiguous().view(-1, numclass)
             if Model == "pointnet2for4d":
                 loss = criterion(seg_pred, target)
+            if Model == "point4d_MMI":
+                x_cord = result['x_cord'].to(device)
+                x_cord_global_prime = result['x_cord_global_prime'].to(device)
+                x_cord_global = result['x_cord_global'].to(device)
+                x_speed = result['x_speed'].to(device)
+                x_cord_prime = result['x_cord_prime'].to(device)
+                x_speed_exp = result['x_speed_exp'].to(device)
+                loss = criterion(seg_pred, target, x_cord, x_cord_prime,
+                                x_cord_global, x_cord_global_prime, 
+                                x_speed_exp, x_speed)
             else:
                 loss = criterion(seg_pred, x_cord, x_speed, target ,trans_feat, weights)
             loss.backward()
