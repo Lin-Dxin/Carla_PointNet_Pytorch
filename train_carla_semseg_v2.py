@@ -69,6 +69,8 @@ elif Model == "pointnet2for4d":
     from models.point4d2net import get_model, get_loss
 elif Model == "point4d_MMI":
     from models.point4d_MMI import get_model, get_loss
+elif Model == "point4d_MMI_2":
+    from models.point4d_MMI_2 import get_model, get_loss
 
 
 if TRANS_LABEL:
@@ -281,9 +283,11 @@ if __name__ == '__main__':
             points = torch.Tensor(points)
             points, target = points.float().to(device), target.long().to(device)
             points = points.transpose(2, 1)
-            result = classifier(points)
-            seg_pred = result['x']
-            trans_feat = result['trans_feat']
+            
+            if Model == "point4d_MMI_2":
+                seg_pred, trans_feat, x_low, x_low_prime, x_low_global, x_low_global_prime, x_high, x_high_exp = classifier(points)
+            else:
+                seg_pred, trans_feat = classifier(points)
             # if Model == "pointnet2for4d":
             #     seg_pred, trans_feat = classifier(points)
             # else:
@@ -300,16 +304,10 @@ if __name__ == '__main__':
             #     x_speed = x_speed.contiguous().view(-1, numclass)
             if Model == "pointnet2for4d":
                 loss = criterion(seg_pred, target)
-            if Model == "point4d_MMI":
-                x_cord = result['x_cord'].to(device)
-                x_cord_global_prime = result['x_cord_global_prime'].to(device)
-                x_cord_global = result['x_cord_global'].to(device)
-                x_speed = result['x_speed'].to(device)
-                x_cord_prime = result['x_cord_prime'].to(device)
-                x_speed_exp = result['x_speed_exp'].to(device)
-                loss = criterion(seg_pred, target, x_cord, x_cord_prime,
-                                x_cord_global, x_cord_global_prime, 
-                                x_speed_exp, x_speed)
+            if Model == "point4d_MMI_2":
+                loss = criterion(seg_pred, target, x_low, x_low_prime,
+                                x_low_global, x_low_global_prime, 
+                                x_high_exp, x_high)
             else:
                 loss = criterion(seg_pred, x_cord, x_speed, target ,trans_feat, weights)
             loss.backward()
