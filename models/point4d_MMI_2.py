@@ -36,7 +36,7 @@ class get_model(nn.Module):
             self.conv3_speed = torch.nn.Conv1d(128, self.k, 1)
             self.bn1_speed = nn.BatchNorm1d(64)
             self.bn2_speed = nn.BatchNorm1d(128)
-        self.feat = PointNetEncoderNew(global_feat=False, feature_transform=True, channel=channel)
+        self.feat = PointNetEncoderNew(global_feat=False, feature_transform=True, channel=3)
         self.conv1 = torch.nn.Conv1d(1088, 512, 1)
         self.conv2 = torch.nn.Conv1d(512, 256, 1)
         self.conv3 = torch.nn.Conv1d(256, 128, 1)

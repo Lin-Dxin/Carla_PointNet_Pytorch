@@ -8,12 +8,47 @@ from torch.utils.data import DataLoader
 from time import time
 import tqdm
 
+from sklearn.neighbors import KDTree
+
+import numpy as np
+
+def farthest_point_sampling(point_cloud, num_points=10000):
+    """
+    使用FPS算法从点云中采样指定数量的点
+
+    参数：
+    point_cloud: numpy数组，形状为(N, 6)，其中N为点云中点的数量，最后一维包含了点的xyz坐标和其他信息
+    num_points: 要采样的点的数量
+
+    返回值：
+    numpy数组，形状为(num_points, 6)，包含了采样的点的信息
+    """
+
+    # 提取点的xyz坐标
+    xyz = point_cloud[:, :3]
+
+    # 随机选择一个点作为第一个采样点
+    sampled_indices = [np.random.randint(len(point_cloud))]
+    distances = np.linalg.norm(xyz - xyz[sampled_indices[0]], axis=1)
+
+    # 使用FPS算法逐步选择剩余的采样点
+    for _ in range(1, num_points):
+        farthest_index = np.argmax(distances)
+        sampled_indices.append(farthest_index)
+        distances = np.minimum(distances, np.linalg.norm(xyz - xyz[farthest_index], axis=1))
+
+    # 根据采样的索引提取采样点
+    sampled_points = point_cloud[sampled_indices]
+
+    return sampled_points
+
+
 
 class CarlaDataset(Dataset):
     # label_weights = np.random.normal(size=5)
 
     def __init__(self, carla_dir, transform=None, split='train', proportion=[0.7, 0.2, 0.1],
-                 num_classes=5, sample_rate=0.1, numpoints=1024 * 8, need_speed=True, chanel_num = 3,
+                 num_classes=5, sample_rate=0.1, numpoints=1024 * 10, need_speed=True, chanel_num = 3,
                  block_size=1.0, resample=False,random_sample=True):
         
         self.split = split  # 区分训练集或者测试集（当数据按文件划分后，可以用whole读取所有数据
@@ -22,9 +57,11 @@ class CarlaDataset(Dataset):
         # rootpath = os.path.abspath('..')
         self.num_classes = num_classes  # 语义类别数
         self.block_size = block_size  # 用于重采样的重采样块大小
-        self.carla_dir = os.path.join(carla_dir)  # 数据路径
+        # self.carla_dir = os.path.join(carla_dir)  # 数据路径
+        self.carla_dir = carla_dir
         self.transform = transform # 用于数据强化，主要是旋转、裁剪数据（目前尚未使用
         self.label_weights = np.random.normal(size=num_classes)  # 用于记录数据分布（指各个语义标签的数据占总体数据的比例）
+        
         self.numpoints = numpoints  # 单帧中采样的点数
         all_file = os.listdir(self.carla_dir)  # 用于记录数据量
         self.need_speed = need_speed  # 用于区分是否使用速度维度
@@ -53,34 +90,37 @@ class CarlaDataset(Dataset):
 
         self.file_list = all_file
         self.file_len = len(all_file)
-        # 只读取文件，不保存： 记录点数、初始化权重、标准化
+        # 只读取文件，不读取： 记录点数、初始化权重、标准化
         room_idxs = []
-        if resample == False:
-            room_idxs = [i for i in range(len(all_file))]
+        # if resample == False:
+        room_idxs = [i for i in range(len(all_file))]
             # 是否打乱room idx
             # room_idxs = random.sample(range(len(all_file)),len(all_file))
-        else:
-            # resample 重采样操作
-            num_all_point = []
-            for file_name in all_file:
-                path = os.path.join(self.carla_dir, file_name)
-                if path[-3:] == 'npz':
-                    data = np.load(path, allow_pickle=True)['arr_0']
-                elif path[-3:] == 'npy':
-                    data = np.load(path, allow_pickle=True)
-                elif path[-3:] == 'txt':
-                    data = np.loadtxt(path)
-                # data = np.load(path, allow_pickle=True)
-                num_all_point.append(len(data))  # 记录点云数
+        # else:
+        #     # resample 重采样操作
+        #     num_all_point = []
+        #     for file_name in all_file:
+        #         path = os.path.join(self.carla_dir, file_name)
+        #         if path[-3:] == 'npz':
+        #             data = np.load(path, allow_pickle=True)['arr_0']
+        #         elif path[-3:] == 'npy':
+        #             data = np.load(path, allow_pickle=True)
+        #         elif path[-3:] == 'txt':
+        #             data = np.loadtxt(path)
+        #         # data = np.load(path, allow_pickle=True)
+        #         num_all_point.append(len(data))  # 记录点云数
 
-            sample_prob = num_all_point / np.sum(num_all_point)  # 单帧中包含的点云数占所有帧的数据点云数的比例
-            num_iter = int(np.sum(num_all_point) * sample_rate / numpoints)  
-            room_idxs = []
-            for index in range(self.file_len):
-                room_idxs.extend([index] * int(round((sample_prob[index]) * num_iter)))  
-                #  对点云数多的帧进行重采样（room_idx用于遍历所有数据，重采样可能后会重复采点云数较多的某一帧）
-                #  例子：0,0,1,2,2,2……  在该例子中  1号帧点云数 < 0号帧点云数 < 3号帧点云数
-                #  后续DataLoader遍历过程中会多次采样0号帧以及3号帧
+            # sample_prob = num_all_point / np.sum(num_all_point)  # 单帧中包含的点云数占所有帧的数据点云数的比例
+            # if numpoints == -1:
+            #     num_iter = int(np.sum(num_all_point) * sample_rate / (8 * 1024))
+            # else:
+            #     num_iter = int(np.sum(num_all_point) * sample_rate / numpoints)
+            # room_idxs = []
+            # for index in range(self.file_len):
+            #     room_idxs.extend([index] * int(round((sample_prob[index]) * num_iter)))  
+            #     #  对点云数多的帧进行重采样（room_idx用于遍历所有数据，重采样可能后会重复采点云数较多的某一帧）
+            #     #  例子：0,0,1,2,2,2……  在该例子中  1号帧点云数 < 0号帧点云数 < 3号帧点云数
+            #     #  后续DataLoader遍历过程中会多次采样0号帧以及3号帧
         self.room_idxs = np.array(room_idxs)
         print("Totally {} samples in {} set.".format(len(self.room_idxs), split))
 
@@ -93,51 +133,23 @@ class CarlaDataset(Dataset):
             raw_data = np.load(roompath)
         elif roompath[-3:] == 'txt':
             raw_data = np.loadtxt(roompath)
-        point = []
-        label = []
-        # for _raw in raw_data:
-        #     # if self.need_speed:
-        #     #     temp = [_raw[0], _raw[1], _raw[2], _raw[3]]
-        #     # else:
-        #     #     temp = [_raw[0], _raw[1], _raw[2]]
+        numpoints = self.numpoints
+        
+        if numpoints > len(raw_data):
+            sample_points = raw_data
+        else:
+            # sample_points = farthest_point_sampling(raw_data, numpoints)
+            sample_points = raw_data[:numpoints, :]
 
-        #     temp = [_raw[i] for i in range(self.chanel_num)]
-        #     point.append(temp)
-        #     label.append(_raw[-1])
-        point = raw_data[:, :self.chanel_num]
-        label = raw_data[:, -1]
+        point = sample_points[:, :4]
+        label = sample_points[:, -1]
         point = np.asarray(point)
         label = np.asarray(label)
         N_points = len(label)
-        cnt = 0
-        if self.random_sample:
+        
+        
 
-            while True:
-                # 对一帧内的点进行随机采样
-                # 随机选择三个点，并在三个点的周围划定区域，Block_Size决定了区域大小
-                # 最终输出数据为Block内的点云
-                center = point[np.random.choice(N_points)][:3]
-                block_min = center - [self.block_size / 2.0, self.block_size / 2.0, 0]
-                block_max = center + [self.block_size / 2.0, self.block_size / 2.0, 0]
-                point_idxs = np.where(
-                    (point[:, 0] >= block_min[0]) & (point[:, 0] <= block_max[0]) & (point[:, 1] >= block_min[1]) & (
-                            point[:, 1] <= block_max[1]))[0]
-                # print(point_idxs.size)
-                cnt += 1
-                # print(cnt)
-                if point_idxs.size > 1024 or cnt > 100:
-                    # print("success! with cnt:")
-                    # print(cnt)
-                    break
-        else:
-            point_idxs = np.array([i for i in range(len(label))])
-        if point_idxs.size >= self.numpoints:
-            selected_point_idxs = np.random.choice(point_idxs, self.numpoints, replace=False)
-        else:
-            selected_point_idxs = np.random.choice(point_idxs, self.numpoints, replace=True)
-        selected_data = np.array(point, dtype=np.float32)[selected_point_idxs]
-        selected_label = np.array(label, dtype=np.float32)[selected_point_idxs]
-        return selected_data, selected_label
+        return point, label
 
     def __len__(self):
         return len(self.room_idxs)

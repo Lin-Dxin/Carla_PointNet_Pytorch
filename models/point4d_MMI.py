@@ -368,7 +368,9 @@ class DeepMILoss(nn.Module):
         # x_global_prime: (batch_size, 64)
         # c: (batch_size, 64, num_points) --- c3
         # c_p: (batch_size, 64) --- c2
-
+        # x_cord_global, x_cord_global_prime, 
+        # x_cord, x_cord_prime,
+        # x_speed, x_speed_exp
         ###### local loss ############
         Ej = -F.softplus(-self.local_d(c, x_local)).mean() # positive pairs
         Em = F.softplus(self.local_d(c, x_local_prime)).mean() # negetive pairs

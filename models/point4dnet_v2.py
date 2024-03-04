@@ -47,8 +47,8 @@ class get_model(nn.Module):
         x_speed = x[:,-1,:]
         x = x[:, :3, :]
         # 16 1 8192
-        s = pd.Series(x_speed.reshape(-1).cpu())
-        s = s.kurt()
+        # s = pd.Series(x_speed.reshape(-1).cpu())
+        # s = s.kurt()
         # ratio = np.exp(-1 * s / 3)
         ratio = 0.3
         # 4 2 1
@@ -78,7 +78,7 @@ class get_model(nn.Module):
             # x = x + 0.3 * x_speed
             x = x + x_speed * ratio
             trans_feat = trans_feat
-        return x, trans_feat, s
+        return x, trans_feat
 
 
 class get_loss(torch.nn.Module):
@@ -95,7 +95,7 @@ class get_loss(torch.nn.Module):
 class STN3d(nn.Module):
     def __init__(self, channel):
         super(STN3d, self).__init__()
-        self.conv1 = torch.nn.Conv1d(channel, 64, 1)
+        self.conv1 = torch.nn.Conv1d(3, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 1024, 1)
         self.fc1 = nn.Linear(1024, 512)
@@ -174,7 +174,7 @@ class PointNetEncoder(nn.Module):
     def __init__(self, global_feat=True, feature_transform=False, channel=3):
         super(PointNetEncoder, self).__init__()
         self.stn = STN3d(channel)
-        self.conv1 = torch.nn.Conv1d(channel, 64, 1)
+        self.conv1 = torch.nn.Conv1d(3, 64, 1)
         self.conv2 = torch.nn.Conv1d(64, 128, 1)
         self.conv3 = torch.nn.Conv1d(128, 1024, 1)
         self.bn1 = nn.BatchNorm1d(64)

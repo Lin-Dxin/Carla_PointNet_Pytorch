@@ -32,7 +32,7 @@ class get_model(nn.Module):
 
             
             self.conv_speed = torch.nn.Conv1d(1, self.k, 1)
-        self.feat = PointNetEncoder(global_feat=False, feature_transform=True, channel=channel)
+        self.feat = PointNetEncoder(global_feat=False, feature_transform=True, channel=3)
         self.conv1 = torch.nn.Conv1d(1088, 512, 1)
         self.conv2 = torch.nn.Conv1d(512, 256, 1)
         self.conv3 = torch.nn.Conv1d(256, 128, 1)
@@ -70,8 +70,8 @@ class get_model(nn.Module):
         x = F.log_softmax(x.view(-1, self.k), dim=-1)
         x = x.view(batchsize, n_pts, self.k)
         x_cord = x
-        
-        return x, trans_feat, x_cord, x_speed
+        x_speed = F.log_softmax(x_speed.view(-1, self.k), dim = -1)
+        return x, trans_feat
 
 
 class get_loss(torch.nn.Module):
@@ -79,12 +79,9 @@ class get_loss(torch.nn.Module):
         super(get_loss, self).__init__()
         self.mat_diff_loss_scale = mat_diff_loss_scale
 
-    def forward(self, pred, x_cord, x_speed, target ,trans_feat, weights):
+    def forward(self, pred, target):
         loss = F.nll_loss(pred, target, weight=None)
-        loss_cord = F.nll_loss(x_cord, target, weight=None)
-        loss_speed = F.nll_loss(x_speed, target, weight=None)
-        mat_diff_loss = feature_transform_reguliarzer(trans_feat)
-        total_loss = loss_cord + loss_speed
+        total_loss = loss
         return total_loss
 
 class STN3d(nn.Module):
